@@ -1,5 +1,3 @@
-require 'rush'
-
 module Delayed
   class Worker
     SLEEP = 5
@@ -17,20 +15,9 @@ module Delayed
       Delayed::Job.max_priority = options[:max_priority] if options.has_key?(:max_priority)
     end
 
-    def make_pid_file
-      Dir.mkdir('tmp') unless File.exists?('tmp') && File.directory?('tmp')
-      File.open('tmp/delayed_job.pid','w') do |f|
-        f.puts "#{Process.pid}"
-      end
-    end
-
-    def remove_pid_file
-      File.delete('tmp/delayed_job.pid') if File.exist?('tmp/delayed_job.pid')
-    end
-
     def start
       say "*** Starting job worker #{Delayed::Job.worker_name}"
-      make_pid_file #pid file being made on start of scale up, this will be checked on each job enqueue
+
       trap('TERM') { say 'Exiting...'; $exit = true }
       trap('INT')  { say 'Exiting...'; $exit = true }
 
@@ -42,8 +29,6 @@ module Delayed
         end
 
         count = result.sum
-
-        Manager.scale_down if count.zero? && Job.auto_scale && Job.count == 0
 
         break if $exit
 
@@ -58,7 +43,6 @@ module Delayed
 
     ensure
       Delayed::Job.clear_locks!
-      remove_pid_file
     end
 
     def say(text)
